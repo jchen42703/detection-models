@@ -1,7 +1,15 @@
-from tf.keras.layers import Input
+from tensorflow.keras.layers import Input, Lambda
+from tensorflow.keras.optimizers import Adam
+from tensorflow.keras import Model
 from detectionmodels.utils.model_utils import add_metrics
 from .loss import yolo3_loss
-from .postprocess import
+from .utils import yolo3_body, custom_tiny_yolo3_body
+
+YOLO_CONFIG = {
+    'tiny_yolo3_darknet': [custom_tiny_yolo3_body, 20,
+                           'weights/yolov3-tiny.h5'],
+    'yolo3_darknet': [yolo3_body, 185, 'weights/darknet53.h5'],
+}
 
 
 def get_yolo3_model(model_type, num_feature_layers, num_anchors, num_classes,
@@ -17,10 +25,10 @@ def get_yolo3_model(model_type, num_feature_layers, num_anchors, num_classes,
 
     # Tiny YOLOv3 model has 6 anchors and 2 feature layers
     if num_feature_layers == 2:
-        if model_type in yolo3_tiny_model_map:
-            model_function = yolo3_tiny_model_map[model_type][0]
-            backbone_len = yolo3_tiny_model_map[model_type][1]
-            weights_path = yolo3_tiny_model_map[model_type][2]
+        if model_type in YOLO_CONFIG:
+            model_function = YOLO_CONFIG[model_type][0]
+            backbone_len = YOLO_CONFIG[model_type][1]
+            weights_path = YOLO_CONFIG[model_type][2]
 
             if weights_path:
                 model_body = model_function(
@@ -34,10 +42,10 @@ def get_yolo3_model(model_type, num_feature_layers, num_anchors, num_classes,
 
     # YOLOv3 model has 9 anchors and 3 feature layers
     elif num_feature_layers == 3:
-        if model_type in yolo3_model_map:
-            model_function = yolo3_model_map[model_type][0]
-            backbone_len = yolo3_model_map[model_type][1]
-            weights_path = yolo3_model_map[model_type][2]
+        if model_type in YOLO_CONFIG:
+            model_function = YOLO_CONFIG[model_type][0]
+            backbone_len = YOLO_CONFIG[model_type][1]
+            weights_path = YOLO_CONFIG[model_type][2]
 
             if weights_path:
                 model_body = model_function(
@@ -76,7 +84,7 @@ def get_yolo3_train_model(
     y_true = [
         Input(
             shape=(None, None, 3, num_classes + 5),
-            name='y_true_{}'.format(l)) for l in range(
+            name='y_true_{}'.format(layer_idx)) for layer_idx in range(
             num_feature_layers)]
 
     model_body, backbone_len = get_yolo3_model(
