@@ -3,9 +3,8 @@ Basic wrappers around notable layers with L2 Regularization.
 """
 from functools import wraps
 
-from tensorflow.keras.layers import Conv2D, DepthwiseConv2D, BatchNormalization
+from tensorflow.keras.layers import Conv2D, DepthwiseConv2D
 from tensorflow.keras.regularizers import l2
-import tensorflow as tf
 
 L2_FACTOR = 1e-5
 
@@ -26,19 +25,3 @@ def YoloDepthwiseConv2D(*args, **kwargs):
     yolo_conv_kwargs['bias_regularizer'] = l2(L2_FACTOR)
     yolo_conv_kwargs.update(kwargs)
     return DepthwiseConv2D(*args, **yolo_conv_kwargs)
-
-
-def CustomBatchNormalization(*args, **kwargs):
-    """Custom wrapper to either set vanilla BN or SyncBN.
-
-    Note: Synchronized Batch Normalization (SyncBN) is a type of batch
-    normalization used for multi-GPU training. SyncBN normalizes the input
-    within the whole mini-batch.
-    """
-    if tf.__version__ >= '2.2':
-        from tensorflow.keras.layers.experimental import SyncBatchNormalization
-        BatchNorm = SyncBatchNormalization
-    else:
-        BatchNorm = BatchNormalization
-
-    return BatchNorm(*args, **kwargs)
