@@ -4,6 +4,8 @@ from tensorflow.keras import Model
 from detectionmodels.utils.model_utils import add_metrics
 from .loss import yolo3_loss
 from .utils import yolo3_body, custom_tiny_yolo3_body
+from .postprocess import batched_yolo3_postprocess
+
 
 YOLO_CONFIG = {
     'tiny_yolo3_darknet': [custom_tiny_yolo3_body, 20,
@@ -129,5 +131,41 @@ def get_yolo3_train_model(
     # use custom yolo_loss Lambda layer
     model.compile(optimizer=optimizer, loss={
                   'yolo_loss': lambda y_true, y_pred: y_pred})
+
+    return model
+
+
+def get_yolo3_inference_model(
+        model_type, anchors, num_classes, weights_path=None, input_shape=None,
+        confidence=0.1, iou_threshold=0.4, elim_grid_sense=False):
+    '''create the inference model, for YOLOv3'''
+    # K.clear_session() # get a new session
+    num_anchors = len(anchors)
+    # YOLOv3 model has 9 anchors and 3 feature layers but
+    # Tiny YOLOv3 model has 6 anchors and 2 feature layers,
+    # so we can calculate feature layers number to get model type
+    num_feature_layers = num_anchors//3
+
+    image_shape = Input(shape=(2,), dtype='int64', name='image_shape')
+
+    model_body, _ = get_yolo3_model(
+        model_type, num_feature_layers, num_anchors, num_classes,
+        input_shape=input_shape)
+    print('Create {} YOLOv3 {} model with {} anchors and {} classes.'.format(
+        'Tiny' if num_feature_layers == 2 else '', model_type, num_anchors,
+        num_classes))
+
+    if weights_path:
+        # , skip_mismatch=True)
+        model_body.load_weights(weights_path, by_name=False)
+        print('Load weights {}.'.format(weights_path))
+
+    boxes, scores, classes = Lambda(
+        batched_yolo3_postprocess, name='yolo3_postprocess',
+        arguments={'anchors': anchors, 'num_classes': num_classes,
+                   'confidence': confidence, 'iou_threshold': iou_threshold,
+                   'elim_grid_sense': elim_grid_sense})(
+        [*model_body.output, image_shape])
+    model = Model([model_body.input, image_shape], [boxes, scores, classes])
 
     return model
