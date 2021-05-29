@@ -13,6 +13,7 @@ setup(name='detectionmodels',
           'tensorflow',
           'pandas',
           'matplotlib'
+          'googledrivedownloader'
       ],
       keywords=['deep learning'],
       )
